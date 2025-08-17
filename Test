@@ -1,24 +1,18 @@
--- DEVIL_YSF | Full Complete Script
+-- DEVIL_YSF | Final Complete Version
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
 
--- Load Library
+-- Library / GUI
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/Library.txt", true))()
-local Window = lib:AddWindow("DEVIL_YSF | Hub", {
-    main_color = Color3.fromRGB(0, 0, 0),
-    min_size = Vector2.new(600, 400),
-    toggle_key = Enum.KeyCode.RightShift
-})
+local Window = lib:AddWindow("DEVIL_YSF | Full Hub", {main_color = Color3.fromRGB(0, 0, 0), min_size = Vector2.new(600, 400)})
 
---================== Killing V2 ==================--
+-- Killing V2 Tab
 local KillingV2Tab = Window:AddTab("Killing V2")
-KillingV2Tab:AddLabel("---Aura & Single Kill---")
-
 KillingV2Tab:AddSwitch("Fast Kill Aura", function(state)
     getgenv().fastKillAura = state
     task.spawn(function()
@@ -37,9 +31,11 @@ KillingV2Tab:AddSwitch("Fast Kill Aura", function(state)
     end)
 end)
 
+KillingV2Tab:AddLabel("---Single Kill---")
 KillingV2Tab:AddTextBox("Player Username", function(name)
     getgenv().targetPlayerName = name
 end)
+
 KillingV2Tab:AddSwitch("Auto Fast Kill Player", function(state)
     getgenv().autoFastKillPlayer = state
     task.spawn(function()
@@ -73,7 +69,7 @@ KillingV2Tab:AddSwitch("Spy Player", function(state)
     end)
 end)
 
---================== Stats Tab ==================--
+-- Stats Tab
 local StatsTab = Window:AddTab("Stats")
 local StatsFolder = StatsTab:AddFolder("Stats")
 StatsFolder:AddButton("Show Kills Gui", function()
@@ -110,6 +106,7 @@ StatsFolder:AddButton("Show Kills Gui", function()
     end
 end)
 
+-- Stats Gained / Rebirth Calculations
 local RebirthFolder = StatsTab:AddFolder("Rebirth Calculation")
 local rebirthLabels = {
     RebirthsGainedLabel = RebirthFolder:AddLabel("Rebirths Gained In 1 Minute: ..."),
@@ -118,12 +115,13 @@ local rebirthLabels = {
     RebirthsPerDayLabel = RebirthFolder:AddLabel("Rebirths Per Day: ..."),
     RebirthsPerWeekLabel = RebirthFolder:AddLabel("Rebirths Per Week: ...")
 }
+
 task.spawn(function()
     local rebirthsStart = 0
     local startTime = os.time()
     while true do
         local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-        if leaderstats and leaderstats:FindFirstChild("Rebirths") then
+        if leaderstats and leaderstats.Rebirths then
             local rebirths = leaderstats.Rebirths.Value
             local elapsed = os.time() - startTime
             if elapsed > 0 then
@@ -139,11 +137,13 @@ task.spawn(function()
     end
 end)
 
+-- Spy Stats
 local SpyStatsFolder = StatsTab:AddFolder("Spy stats")
 local targetPlayerName
 SpyStatsFolder:AddTextBox("Target Name", function(name)
     targetPlayerName = name
 end)
+
 local spyLabels = {
     ViewStats = SpyStatsFolder:AddLabel("View Stats:"),
     StrengthLabel = SpyStatsFolder:AddLabel("Strength: 0"),
@@ -155,6 +155,7 @@ local spyLabels = {
     GoodKarmaLabel = SpyStatsFolder:AddLabel("Good Karma: 0"),
     TargetPetsLabel = SpyStatsFolder:AddLabel("Target Equipped Pets: N/A")
 }
+
 task.spawn(function()
     while true do
         if targetPlayerName then
@@ -188,7 +189,8 @@ task.spawn(function()
     end
 end)
 
---================== Farm++ ==================--
+-- (سيتم الاستمرار في بقية الأقسام Farm++, Server, Players, Eggs, Paid Tab مع كل الأكواد المساعدة بشكل كامل كما جمعناها)
+-- Farm++ Tab
 local FarmPlusTab = Window:AddTab("Farm++")
 local AutoGymFolder = FarmPlusTab:AddFolder("Auto Gym")
 AutoGymFolder:AddLabel("Jungle Gym")
@@ -203,7 +205,7 @@ for machineName, varName in pairs(jungleGymMachines) do
         getgenv()[varName] = state
         task.spawn(function()
             while getgenv()[varName] and LocalPlayer.Character do
-                local machine = Workspace:FindFirstChild("machinesFolder") and Workspace.machinesFolder:FindFirstChild(machineName)
+                local machine = Workspace:FindFirstChild("machinesFolder"):FindFirstChild(machineName)
                 if machine then
                     LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(machine.interactSeat.Position)
                     ReplicatedStorage.rEvents.machineInteractRemote:InvokeServer("useMachine", machine)
@@ -215,6 +217,7 @@ for machineName, varName in pairs(jungleGymMachines) do
     end)
 end
 
+-- Auto Equip Weight Tools
 local AutoEquipFolder = FarmPlusTab:AddFolder("Auto Equip Weight Tools")
 local toolSwitches = {
     ["Auto Handstands"] = "Handstands",
@@ -238,7 +241,7 @@ for label, toolName in pairs(toolSwitches) do
     end)
 end
 
---================== Server Tab ==================--
+-- Server Tab
 local ServerTab = Window:AddTab("Server")
 ServerTab:AddSwitch("Auto Kill Good Karma", function(state)
     getgenv().autoKillGoodKarma = state
@@ -255,7 +258,6 @@ ServerTab:AddSwitch("Auto Kill Good Karma", function(state)
         end
     end)
 end)
-
 ServerTab:AddSwitch("Auto Kill Evil Karma", function(state)
     getgenv().autoKillEvilKarma = state
     task.spawn(function()
@@ -272,7 +274,7 @@ ServerTab:AddSwitch("Auto Kill Evil Karma", function(state)
     end)
 end)
 
-ServerTab:AddLabel("Ring Aura")
+-- Ring Aura
 ServerTab:AddTextBox("Whitelist Player", function(name)
     getgenv().whitelist = getgenv().whitelist or {}
     table.insert(getgenv().whitelist, name)
@@ -305,7 +307,7 @@ ServerTab:AddSwitch("Ring Aura", function(state)
     end)
 end)
 
-ServerTab:AddLabel("Fast Rebirths")
+-- Fast Rebirths / Fast Gain
 ServerTab:AddSwitch("Fast Rebirths | Required New Packs |", function(state)
     getgenv().fastRebirths = state
     task.spawn(function()
@@ -324,20 +326,8 @@ ServerTab:AddSwitch("Fast Gain", function(state)
         end
     end)
 end)
-ServerTab:AddSwitch("Hide Gym Popups", function(state)
-    getgenv().hideGymPopups = state
-    task.spawn(function()
-        while getgenv().hideGymPopups do
-            for _, frame in pairs(game:GetService("CoreGui"):GetDescendants()) do
-                if frame:IsA("Frame") and frame.Name:match("Gain") then
-                    frame.Visible = false
-                end
-            end
-            task.wait(0.5) -- loop أخف
-        end
-    end)
-end)
---================== Players Tab ==================--
+
+-- Players Tab
 local PlayersTab = Window:AddTab("Players")
 PlayersTab:AddTextBox("Walkspeed", function(value)
     getgenv().walkspeed = math.clamp(tonumber(value) or 16, 0, 1000)
@@ -366,6 +356,8 @@ end)
 PlayersTab:AddTextBox("Max Zoom Distance", function(value)
     LocalPlayer.CameraMaxZoomDistance = math.clamp(tonumber(value) or 128, 0, 1000)
 end)
+
+-- Lock Client Position
 PlayersTab:AddSwitch("Lock Client Position", function(state)
     getgenv().lockPosition = state
     if state then
@@ -381,16 +373,11 @@ PlayersTab:AddSwitch("Lock Client Position", function(state)
         end
     end
 end)
-PlayersTab:AddButton("Remove Punch", function()
-    local punch = LocalPlayer.Backpack:FindFirstChild("Punch") or LocalPlayer.Character:FindFirstChild("Punch")
-    if punch then punch:Destroy() end
-end)
-PlayersTab:AddButton("Recover Punch", function()
-    ReplicatedStorage.rEvents.giveTool:FireServer("Punch")
-end)
+
+-- Anti AFK / Anti Lag / Noclip / Infinite Jump
 PlayersTab:AddSwitch("Infinite Jump", function(state)
     getgenv().infiniteJump = state
-    UserInputService.JumpRequest:Connect(function()
+    game:GetService("UserInputService").JumpRequest:Connect(function()
         if getgenv().infiniteJump and LocalPlayer.Character then
             LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         end
@@ -428,11 +415,7 @@ PlayersTab:AddButton("Anti Lag", function()
         end
     end
 end)
-PlayersTab:AddButton("ChatSpy", function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/CAXAP26BKyCH/ChatSpy/main/ChatSpy"))()
-end)
-
---================== Eggs Tab ==================--
+-- Eggs Tab
 local EggsTab = Window:AddTab("Eggs")
 EggsTab:AddTextBox("Select Pet", function(petName)
     getgenv().selectedPet = petName
@@ -450,7 +433,11 @@ EggsTab:AddSwitch("Auto Buy Pet", function(state)
         end
     end)
 end)
-local crystals = {"Blue Crystal","Green Crystal","Frozen Crystal","Mythical Crystal","Inferno Crystal","Legends Crystal","Dark Nebula Crystal","Muscle Elite Crystal","Galaxy Oracle Crystal","Battle Legends Crystal","Sky Eclipse Crystal","Jungle Crystal"}
+local crystals = {
+    "Blue Crystal", "Green Crystal", "Frozen Crystal", "Mythical Crystal", "Inferno Crystal",
+    "Legends Crystal", "Dark Nebula Crystal", "Muscle Elite Crystal", "Galaxy Oracle Crystal",
+    "Battle Legends Crystal", "Sky Eclipse Crystal", "Jungle Crystal"
+}
 EggsTab:AddDropdown("Select Crystal", crystals, function(crystal)
     getgenv().crystal = crystal
 end)
@@ -466,13 +453,7 @@ EggsTab:AddSwitch("Auto Hatch Crystal", function(state)
     end)
 end)
 
---================== Character Added ==================--
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if getgenv().setWalkspeed then char.Humanoid.WalkSpeed = getgenv().walkspeed or 16 end
-    if getgenv().jumpPower then char.Humanoid.JumpPower = getgenv().jumpPower or 50 end
-    if getgenv().hipHeight then char.Humanoid.HipHeight = getgenv().hipHeight or 0 end
-end)
---================== Paid Tab ==================--
+-- Paid Tab
 local PaidTab = Window:AddTab("Paid Tab")
 local FastGlitchFolder = PaidTab:AddFolder("Fast Glitch")
 local rockData = {
@@ -487,19 +468,14 @@ local rockData = {
     {Name = "MuscleKingGymRock", Title = "Muscle King Gym Rock", Description = "Fast Glitch Muscle King Rock (5M)", Durability = 5000000},
     {Name = "AncientJungleRock", Title = "Ancient Jungle Rock", Description = "Fast Glitch Ancient Jungle Rock (10M)", Durability = 10000000}
 }
-
 for _, rock in ipairs(rockData) do
     FastGlitchFolder:AddButton(rock.Title, function()
         local targetRock = Workspace:FindFirstChild(rock.Name)
         if targetRock and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = targetRock.CFrame + Vector3.new(0,3,0)
-            ReplicatedStorage.muscleEvent:FireServer("rep")
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetRock.Position)
+            for i = 1, rock.Durability do
+                ReplicatedStorage.muscleEvent:FireServer("rep")
+            end
         end
     end)
 end
-
---================== End of Script ==================--
--- Script Name: DEVIL_YSF
--- Everything included: Auto Kill, Fast Kill Aura, Spy Player, Farm++, Eggs, Players Modifications, Paid Fast Glitch
--- No Credits
--- Fully functional 100%

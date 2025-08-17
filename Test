@@ -321,7 +321,36 @@ ServerTab:AddSwitch("Fast Gain", function(state)
     getgenv().fastGain = state
     task.spawn(function()
         while getgenv().fastGain and LocalPlayer.Character do
-            ReplicatedStorage.muscleEvent:FireServer("rep")
+            -- الأدوات اليدوية
+            local tools = {"Handstands", "Weight", "Pushups", "Situps"}
+            for _, toolName in ipairs(tools) do
+                if getgenv()["Auto " .. toolName] then
+                    local tool = LocalPlayer.Backpack:FindFirstChild(toolName) or LocalPlayer.Character:FindFirstChild(toolName)
+                    if tool then
+                        tool.Parent = LocalPlayer.Character
+                        ReplicatedStorage.muscleEvent:FireServer("rep")
+                    end
+                end
+            end
+
+            -- الأجهزة (Machines)
+            local machines = {
+                ["Jungle Bench"] = "autoJungleBench",
+                ["Jungle Bar Lift"] = "autoJungleBarLift",
+                ["Jungle Boulder"] = "autoJungleBoulder",
+                ["Jungle Squat"] = "autoJungleSquat"
+            }
+            for machineName, varName in pairs(machines) do
+                if getgenv()[varName] then
+                    local machine = Workspace.machinesFolder:FindFirstChild(machineName)
+                    if machine then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(machine.interactSeat.Position)
+                        ReplicatedStorage.rEvents.machineInteractRemote:InvokeServer("useMachine", machine)
+                        ReplicatedStorage.muscleEvent:FireServer("rep")
+                    end
+                end
+            end
+
             task.wait(0.05)
         end
     end)

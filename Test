@@ -324,12 +324,12 @@ ServerTab:AddSwitch("Fast Gain", function(state)
         end
     end)
 end)
-ServerTab:AddSwitch("Hide Frames", function(state)
-    getgenv().hideFrames = state
+ServerTab:AddSwitch("Hide Gym Popups", function(state)
+    getgenv().hideGymPopups = state
     task.spawn(function()
-        while getgenv().hideFrames do
+        while getgenv().hideGymPopups do
             for _, frame in pairs(game:GetService("CoreGui"):GetDescendants()) do
-                if frame:IsA("Frame") then
+                if frame:IsA("Frame") and frame.Name:match("Gain") then
                     frame.Visible = false
                 end
             end
@@ -337,7 +337,6 @@ ServerTab:AddSwitch("Hide Frames", function(state)
         end
     end)
 end)
-
 --================== Players Tab ==================--
 local PlayersTab = Window:AddTab("Players")
 PlayersTab:AddTextBox("Walkspeed", function(value)

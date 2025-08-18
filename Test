@@ -1,35 +1,16 @@
---// Load Library
+--// Vyxon Hub Fixed Script
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/Library.txt", true))()
-local win = lib:AddWindow("Fixed by Vyxon | Full Hub", {
+local win = lib:AddWindow("Fixed by Vyxon | test hub", {
     main_color = Color3.fromRGB(0, 0, 255),
     min_size = Vector2.new(540, 450),
     can_resize = false,
 })
 
---// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
 
---// Global tables for tracking features
-getgenv().whitelist = getgenv().whitelist or {}
-getgenv().autoRebirth = false
-getgenv().farmingMob = false
-getgenv().farmingMachine = false
-getgenv().fastGlitch = getgenv().fastGlitch or {}
-getgenv().fastGlitchV2 = getgenv().fastGlitchV2 or {}
-getgenv().autopunch = false
-getgenv().fastPunch = false
-getgenv().autoKillActive = false
-getgenv().fastKillAura = false
-getgenv().spyPlayer = false
---// Rebirth Tab
-local rebTab = win:AddTab("Rebirth")
-
--- Rebirth System
-local RBCode = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/README.md"))()
+--// Rebirth Class
 local RB = {}
 RB.__index = RB
 function RB.new(tab)
@@ -47,16 +28,16 @@ function RB:ui()
         if n and n >= 1 then self.target = n else self.input:Set("") end
     end, { placeholder = "" })
 
-    self.tab:AddSwitch("Auto Rebirth", function(state)
-        self.on = state
-        if state then self:run() end
+    self.tab:AddSwitch("Auto Rebirth", function(s)
+        self.on = s
+        if s then self:run() end
     end)
 end
 
 function RB:run()
     task.spawn(function()
-        local ls = LocalPlayer:WaitForChild("leaderstats")
-        local rb = ls and ls:WaitForChild("Rebirths")
+        local leaderstats = LocalPlayer:WaitForChild("leaderstats")
+        local rb = leaderstats and leaderstats:WaitForChild("Rebirths")
         local evt = ReplicatedStorage:WaitForChild("rEvents")
         local remote = evt and evt:WaitForChild("rebirthRemote")
         if not (rb and remote) then self.on = false return end
@@ -69,68 +50,41 @@ function RB:run()
     end)
 end
 
+--// Tabs
+local rebTab = win:AddTab("Rebirth")
+local mainTab = win:AddTab("Main")
 local reb = RB.new(rebTab)
 
---// Main Tab
-local mainTab = win:AddTab("Main")
-
--- WalkSpeed
-mainTab:AddTextBox("Player Speed", function(val)
+--// Main Features
+mainTab:AddTextBox("WalkSpeed", function(val)
     local num = tonumber(val)
-    if num and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+    if num and LocalPlayer.Character then
         LocalPlayer.Character.Humanoid.WalkSpeed = num
     end
-end, { placeholder = "WalkSpeed" })
+end, { placeholder = "Player Speed" })
 
--- JumpPower
-mainTab:AddTextBox("Jump Power", function(val)
-    local num = tonumber(val)
-    if num and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.JumpPower = num
-    end
-end, { placeholder = "JumpPower" })
-
--- Anti Knockback
-mainTab:AddSwitch("Anti Knockback", function(state)
+mainTab:AddSwitch("Anti Knockback", function(bool)
     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        humanoid:SetAttribute("NoKnockback", state)
-    end
-end)
-
--- Lock Position
-local lockedPos = nil
-mainTab:AddSwitch("Lock Position", function(state)
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if state and hrp then
-        lockedPos = hrp.CFrame
-        task.spawn(function()
-            while state and hrp do
-                hrp.CFrame = lockedPos
-                task.wait()
-            end
-        end)
-    else
-        lockedPos = nil
+        humanoid:SetAttribute("NoKnockback", bool)
     end
 end)
 --// Killer Tab
 local killerTab = win:AddTab("Killer")
-
 local whitelist = {}
 
 -- Kill Evil Karma
-killerTab:AddSwitch("Kill Evil Karma", function(state)
+killerTab:AddSwitch("Kill Evil Karma", function(bool)
     task.spawn(function()
-        while state do
+        while bool and LocalPlayer.Character do
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
                     local karma = p.leaderstats:FindFirstChild("Karma")
                     if karma and karma.Value < 0 then
                         local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp and myHrp then
-                            myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and myHRP then
+                            myHRP.CFrame = hrp.CFrame * CFrame.new(0,0,3)
                             local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
                             if tool then tool:Activate() end
                         end
@@ -143,17 +97,17 @@ killerTab:AddSwitch("Kill Evil Karma", function(state)
 end)
 
 -- Kill Good Karma
-killerTab:AddSwitch("Kill Good Karma", function(state)
+killerTab:AddSwitch("Kill Good Karma", function(bool)
     task.spawn(function()
-        while state do
+        while bool and LocalPlayer.Character do
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
                     local karma = p.leaderstats:FindFirstChild("Karma")
                     if karma and karma.Value > 0 then
                         local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if hrp and myHrp then
-                            myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and myHRP then
+                            myHRP.CFrame = hrp.CFrame * CFrame.new(0,0,3)
                             local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
                             if tool then tool:Activate() end
                         end
@@ -179,15 +133,15 @@ killerTab:AddTextBox("Whitelist User", function(user)
 end, { placeholder = "Add Username" })
 
 -- Auto Kill All
-killerTab:AddSwitch("Auto Kill All", function(state)
+killerTab:AddSwitch("Auto Kill All", function(bool)
     task.spawn(function()
-        while state do
+        while bool and LocalPlayer.Character do
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and not table.find(whitelist, p.Name) then
                     local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-                    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp and myHrp then
-                        myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                    local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and myHRP then
+                        myHRP.CFrame = hrp.CFrame * CFrame.new(0,0,3)
                         local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                     end
@@ -197,107 +151,56 @@ killerTab:AddSwitch("Auto Kill All", function(state)
         end
     end)
 end)
-
--- Fast Kill Aura
-getgenv().ringAuraRadius = 10
-killerTab:AddTextBox("Aura Radius", function(val)
-    local num = tonumber(val)
-    if num then getgenv().ringAuraRadius = num end
-end, { placeholder = "Default 10" })
-
-killerTab:AddSwitch("Fast Kill Aura", function(state)
-    getgenv().fastKillAura = state
-    task.spawn(function()
-        while getgenv().fastKillAura do
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                    if distance <= getgenv().ringAuraRadius then
-                        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                    end
-                end
-            end
-            task.wait(0.05)
-        end
-    end)
-end)
-
--- Spy Player
-getgenv().targetPlayerName = nil
-killerTab:AddTextBox("Target Player", function(name)
-    getgenv().targetPlayerName = name
-end)
-
-killerTab:AddSwitch("Spy Player", function(state)
-    getgenv().spyPlayer = state
-    task.spawn(function()
-        while getgenv().spyPlayer and getgenv().targetPlayerName do
-            local target = Players:FindFirstChild(getgenv().targetPlayerName)
-            if target and target.Character then
-                Workspace.CurrentCamera.CameraSubject = target.Character:FindFirstChildOfClass("Humanoid")
-            end
-            task.wait(1)
-        end
-        if LocalPlayer.Character then
-            Workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        end
-    end)
-end)
 --// Auto Farm Tab
 local farmTab = win:AddTab("Auto Farm")
-
-local machines = {
-    "Tiny Island Rock", "Punching Rock", "Large Island Rock",
-    "Golden Rock", "Frost Gym Rock", "Mythical Gym Rock",
-    "Eternal Gym Rock", "Legends Gym Rock", "Muscle King Gym Rock",
-    "Ancient Jungle Rock"
-}
+local machines = {"Muscle King Bench", "Muscle King Lift", "Muscle King Teleportal"}
 local selectedMachine = machines[1]
 local farmingMachine = false
+local mobs = {}
+local selectedMob = nil
+local farmingMob = false
 
--- Machine Dropdown
+-- اختيار الماكينة
 farmTab:AddDropdown("Select Machine", function(option)
     selectedMachine = option
-end, { default = selectedMachine, options = machines })
+end, {default = selectedMachine, options = machines})
 
 -- Auto Farm Machine
-farmTab:AddSwitch("Auto Farm Machine", function(state)
-    farmingMachine = state
-    if state then
+farmTab:AddSwitch("Auto Farm Machine", function(bool)
+    farmingMachine = bool
+    if bool then
         task.spawn(function()
             while farmingMachine and LocalPlayer.Character do
-                local machineObj = workspace:FindFirstChild(selectedMachine)
-                if machineObj and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = machineObj.CFrame * CFrame.new(0,0,3)
+                local machine = workspace:FindFirstChild(selectedMachine)
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if machine and hrp then
+                    hrp.CFrame = machine.CFrame * CFrame.new(0,0,3)
                     local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
                     if tool then tool:Activate() end
                 end
-                task.wait(0.05) -- سرعة التمرين
+                task.wait(0.05)
             end
         end)
     end
 end)
 
--- Mob Farming
-local mobs = {}
-local selectedMob = nil
-local farmingMob = false
-
-farmTab:AddTextBox("Add Mob Name", function(mobName)
-    if mobName and mobName ~= "" and not table.find(mobs, mobName) then
-        table.insert(mobs, mobName)
+-- إضافة الموبز
+farmTab:AddTextBox("Mob Name", function(name)
+    if name and name ~= "" and not table.find(mobs, name) then
+        table.insert(mobs, name)
         mobDropdown:UpdateOptions(mobs)
     end
-end, { placeholder = "Type Mob Name" })
+end, {placeholder = "Type Mob Name to Save"})
 
-local mobDropdown = farmTab:AddDropdown("Select Mob", function(mob)
-    selectedMob = mob
-end, { default = nil, options = mobs })
+-- Dropdown لاختيار الموب
+local mobDropdown = farmTab:AddDropdown("Select Mob", function(name)
+    selectedMob = name
+end, {default = nil, options = mobs})
 
-farmTab:AddSwitch("Auto Farm Mob", function(state)
-    farmingMob = state
-    if state then
+-- Auto Farm Mob
+farmTab:AddSwitch("Auto Farm Mob", function(bool)
+    farmingMob = bool
+    if bool then
         task.spawn(function()
             while farmingMob and selectedMob and LocalPlayer.Character do
                 for _, mob in pairs(workspace:GetDescendants()) do
@@ -308,7 +211,7 @@ farmTab:AddSwitch("Auto Farm Mob", function(state)
                             local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
                             if tool then tool:Activate() end
                         end
-                        task.wait(0.05) -- سرعة الهجوم
+                        task.wait(0.05)
                     end
                 end
                 task.wait(0.05)
@@ -318,92 +221,531 @@ farmTab:AddSwitch("Auto Farm Mob", function(state)
 end)
 --// Stats Tab
 local statsTab = win:AddTab("Stats")
+statsTab:AddLabel("Track Stats")
 
--- Refresh Leaderstats
-statsTab:AddButton("Refresh My Stats", function()
-    statsTab:Clear() -- يمسح البيانات القديمة قبل الإضافة
+-- إدخال اسم مستخدم مخصص
+statsTab:AddTextBox("Custom User (Name)", function(name)
+    local player = game.Players:FindFirstChild(name)
+    if player then
+        local ls = player:FindFirstChild("leaderstats")
+        if ls then
+            for _, stat in pairs(ls:GetChildren()) do
+                statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
+            end
+        end
+    end
+end, {placeholder = "Enter Username"})
+
+-- زر لتحديث الإحصائيات للاعب الحالي
+statsTab:AddButton("Refresh Stats", function()
+    local ls = LocalPlayer:FindFirstChild("leaderstats")
+    if ls then
+        for _, stat in pairs(ls:GetChildren()) do
+            statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
+        end
+    end
+end)
+
+--// Crystals Tab (Pets & Auras)
+local crystalsTab = win:AddTab("Crystals")
+
+local uniquePets = {"Infernal Dragon", "Ultra Birdie", "Magic Butterfly", "Aether Spirit Bunny"}
+local epicPets = {"Blue Pheonix", "Golden Pheonix", "Red Firecaster"}
+local rarePets = {"Crimson Falcon", "Purple Dragon", "Orange Pegasus"}
+local advancedPets = {"Dark Vampy", "Green Butterfly"}
+local basicPets = {"Blue Birdie", "Red Kitty"}
+
+local uniqueAuras = {"Inferno", "Dark Storm", "Dark Lightning"}
+local epicAuras = {"Enchanted Mirage", "Lightning", "Azure Tundra"}
+local rareAuras = {"Astral Electro", "Dark Electro", "Ultra Mirage"}
+local advancedAuras = {"Purple Nova", "Electro"}
+local basicAuras = {"Yellow Aura", "Blue Aura"}
+
+-- Pets Dropdowns
+crystalsTab:AddDropdown("Select Pet (Unique)", function(pet)
+    print("Selected Unique Pet: "..pet)
+end, {options = uniquePets})
+
+crystalsTab:AddDropdown("Select Pet (Epic)", function(pet)
+    print("Selected Epic Pet: "..pet)
+end, {options = epicPets})
+
+crystalsTab:AddDropdown("Select Pet (Rare)", function(pet)
+    print("Selected Rare Pet: "..pet)
+end, {options = rarePets})
+
+crystalsTab:AddDropdown("Select Pet (Advanced)", function(pet)
+    print("Selected Advanced Pet: "..pet)
+end, {options = advancedPets})
+
+crystalsTab:AddDropdown("Select Pet (Basic)", function(pet)
+    print("Selected Basic Pet: "..pet)
+end, {options = basicPets})
+
+-- Auras Dropdowns
+crystalsTab:AddDropdown("Select Aura (Unique)", function(aura)
+    print("Selected Unique Aura: "..aura)
+end, {options = uniqueAuras})
+
+crystalsTab:AddDropdown("Select Aura (Epic)", function(aura)
+    print("Selected Epic Aura: "..aura)
+end, {options = epicAuras})
+
+crystalsTab:AddDropdown("Select Aura (Rare)", function(aura)
+    print("Selected Rare Aura: "..aura)
+end, {options = rareAuras})
+
+crystalsTab:AddDropdown("Select Aura (Advanced)", function(aura)
+    print("Selected Advanced Aura: "..aura)
+end, {options = advancedAuras})
+
+crystalsTab:AddDropdown("Select Aura (Basic)", function(aura)
+    print("Selected Basic Aura: "..aura)
+end, {options = basicAuras})
+--// Killer Tab
+local killerTab = win:AddTab("Killer")
+
+local whitelist = {}
+
+-- Kill Evil Karma
+killerTab:AddSwitch("Kill Evil Karma", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
+                    local karma = p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value < 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                            plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Kill Good Karma
+killerTab:AddSwitch("Kill Good Karma", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
+                    local karma = p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value > 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                            plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Kill Low Strength
+local lowStrengthThreshold = 0
+killerTab:AddTextBox("Kill Low Strength <", function(val)
+    lowStrengthThreshold = tonumber(val) or 0
+end, {placeholder = "Strength Threshold"})
+
+-- Whitelist User
+killerTab:AddTextBox("Whitelist User", function(user)
+    if user and user ~= "" and not table.find(whitelist, user) then
+        table.insert(whitelist, user)
+    end
+end, {placeholder = "Add Username"})
+
+-- Auto Kill All
+killerTab:AddSwitch("Auto Kill All", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) then
+                    local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                        plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                        local tool = plr.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Auto Kill on Player Join
+game.Players.PlayerAdded:Connect(function(player)
+    if player ~= plr and not table.find(whitelist, player.Name) then
+        task.spawn(function()
+            while player.Character and plr.Character do
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                    local tool = plr.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+                task.wait(0.2)
+            end
+        end)
+    end
+end)
+--// Auto Farm Tab
+local farmTab = win:AddTab("Auto Farm")
+
+local machines = {"Muscle King Bench", "Muscle King Lift", "Muscle King Teleportal"}
+local selectedMachine = machines[1]
+local farmingMachine = false
+
+farmTab:AddDropdown("Select Machine", function(opt)
+    selectedMachine = opt
+end, {default = selectedMachine, options = machines})
+
+farmTab:AddSwitch("Auto Farm Machine", function(state)
+    farmingMachine = state
+    if state then
+        task.spawn(function()
+            while farmingMachine and selectedMachine and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") do
+                local machine = workspace:FindFirstChild(selectedMachine)
+                if machine then
+                    plr.Character.HumanoidRootPart.CFrame = machine.CFrame * CFrame.new(0,0,3)
+                    local tool = plr.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+                task.wait(0.05) -- سرعة التمرين
+            end
+        end)
+    end
+end)
+
+--// Auto Farm Mob
+local mobs = {}
+local selectedMob = nil
+local farmingMob = false
+
+farmTab:AddTextBox("Add Mob Name", function(name)
+    if name and name ~= "" and not table.find(mobs, name) then
+        table.insert(mobs, name)
+        mobDropdown:UpdateOptions(mobs)
+    end
+end, {placeholder = "Type Mob Name"})
+
+local mobDropdown = farmTab:AddDropdown("Select Mob", function(mob)
+    selectedMob = mob
+end, {default = nil, options = mobs})
+
+farmTab:AddSwitch("Auto Farm Mob", function(state)
+    farmingMob = state
+    if state then
+        task.spawn(function()
+            while farmingMob and selectedMob and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") do
+                for _, mob in pairs(workspace:GetDescendants()) do
+                    if mob:IsA("Model") and mob.Name == selectedMob and mob:FindFirstChild("HumanoidRootPart") then
+                        plr.Character.HumanoidRootPart.CFrame = mob.HumanoidRootPart.CFrame * CFrame.new(0,0,-3)
+                        local tool = plr.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
+                end
+                task.wait(0.05) -- سرعة الهجوم على الموب
+            end
+        end)
+    end
+end)
+--// Stats Tab
+local statsTab = win:AddTab("Stats")
+
+statsTab:AddLabel("Track Stats")
+statsTab:AddTextBox("Custom User (Name)", function(name)
+    -- يمكن تعديل لاحقًا لعرض إحصائيات مستخدم معين
+end, {placeholder = "Type Username"})
+
+statsTab:AddButton("Refresh Stats", function()
+    statsTab:Clear() -- إزالة المحتوى السابق قبل الإضافة
     local ls = plr:FindFirstChild("leaderstats")
     if ls then
         for _, stat in pairs(ls:GetChildren()) do
             statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
         end
-    else
-        statsTab:AddLabel("No leaderstats found")
     end
 end)
 
--- Track Custom Player
-local customPlayerName = ""
-statsTab:AddTextBox("Custom Player Name", function(name)
-    customPlayerName = name
-end, { placeholder = "Enter player name" })
+--// Crystals Tab
+local crystalsTab = win:AddTab("Crystals")
 
-statsTab:AddButton("Refresh Custom Player Stats", function()
-    statsTab:Clear()
-    if customPlayerName and customPlayerName ~= "" then
-        local target = Players:FindFirstChild(customPlayerName)
-        if target and target:FindFirstChild("leaderstats") then
-            for _, stat in pairs(target.leaderstats:GetChildren()) do
-                statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
+local uniquePets = {"Infernal Dragon", "Ultra Birdie", "Magic Butterfly", "Aether Spirit Bunny", "Cybernetic Showdown Dragon", "Darkstar Hunter", "Hank", "Gold Warrior", "Sky Hawk", "Cool Guy", "Larry", "Screaming Bones", "Muscle Sensei", "Neon Guardian"}
+local epicPets = {"Blue Pheonix", "Blue Firecaster", "Golden Pheonix", "Red Firecaster", "Golden Pheonix", "Green Firecaster", "White Pheonix", "Dark Legends Manticore", "Ultimate Supernova Pegasus", "Lightning Strike Phantom", "Mask Of Gold", "A. Gnatomy", "Sir Flame", "Masked Marksman", "Golden Viking"}
+local rarePets = {"Crimson Falcon", "Purple Dragon", "Orange Pegasus", "Purple Falcon", "Red Dragon", "White Pegasus", "Frostwave Legends", "Penguin Phantom", "Genesis Dragon", "Eternal Strike", "Leviathan", "Green-Fly", "Ice Ice", "Slitherman", "Mr. Serious", "Boy Wonder"}
+local advancedPets = {"Dark Vampy", "Dark Golem", "Green Butterfly", "Yellow Butterfly", "Alien Girl", "Smiley Chops"}
+local basicPets = {"Blue Birdie", "Orange Hedgehog", "Red Kitty", "Blue Bunny", "Silver Dog"}
+
+local uniqueAuras = {"Inferno", "Dark Storm", "Dark Lightning", "Muscle King", "Eternal Megastrike", "Entropic Blast"}
+local epicAuras = {"Enchanted Mirage", "Unstable Mirage", "Lightning", "Azure Tundra", "Grand Supernova"}
+local rareAuras = {"Astral Electro", "Dark Electro", "Ultra Mirage", "Supernova", "Power Lightning", "Ultra Inferno"}
+local advancedAuras = {"Purple Nova", "Electro"}
+local basicAuras = {"Yellow Aura", "Purple Aura", "Green Aura", "Blue Aura", "Red Aura"}
+
+-- Pets
+crystalsTab:AddDropdown("Select Pet (Unique)", function(pet) print("Selected Pet:", pet) end, {options = uniquePets})
+crystalsTab:AddDropdown("Select Pet (Epic)", function(pet) print("Selected Pet:", pet) end, {options = epicPets})
+crystalsTab:AddDropdown("Select Pet (Rare)", function(pet) print("Selected Pet:", pet) end, {options = rarePets})
+crystalsTab:AddDropdown("Select Pet (Advanced)", function(pet) print("Selected Pet:", pet) end, {options = advancedPets})
+crystalsTab:AddDropdown("Select Pet (Basic)", function(pet) print("Selected Pet:", pet) end, {options = basicPets})
+
+-- Auras
+crystalsTab:AddDropdown("Select Aura (Unique)", function(aura) print("Selected Aura:", aura) end, {options = uniqueAuras})
+crystalsTab:AddDropdown("Select Aura (Epic)", function(aura) print("Selected Aura:", aura) end, {options = epicAuras})
+crystalsTab:AddDropdown("Select Aura (Rare)", function(aura) print("Selected Aura:", aura) end, {options = rareAuras})
+crystalsTab:AddDropdown("Select Aura (Advanced)", function(aura) print("Selected Aura:", aura) end, {options = advancedAuras})
+crystalsTab:AddDropdown("Select Aura (Basic)", function(aura) print("Selected Aura:", aura) end, {options = basicAuras})
+--// Killer Tab Features
+local killerTab = win:AddTab("Killer")
+local whitelist = {} -- قائمة لاعبين لا يستهدفهم السكربت
+local ringAuraRadius = 10 -- نصف قطر الـ Fast Kill Aura
+
+-- Auto Kill Evil Karma
+killerTab:AddSwitch("Kill Evil Karma", function(bool)
+    task.spawn(function()
+        while bool do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) then
+                    local karma = p:FindFirstChild("leaderstats") and p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value < 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                            plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
             end
-        else
-            statsTab:AddLabel("Player not found or no leaderstats")
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Auto Kill Good Karma
+killerTab:AddSwitch("Kill Good Karma", function(bool)
+    task.spawn(function()
+        while bool do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) then
+                    local karma = p:FindFirstChild("leaderstats") and p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value > 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                            plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Kill Low Strength Threshold
+local lowStrength = 0
+killerTab:AddTextBox("Kill Low Strength <", function(val)
+    lowStrength = tonumber(val) or 0
+end, { placeholder = "Strength Threshold" })
+
+-- Whitelist Player
+killerTab:AddTextBox("Whitelist User", function(user)
+    if user and user ~= "" and not table.find(whitelist, user) then
+        table.insert(whitelist, user)
+    end
+end, { placeholder = "Add Username" })
+
+-- Auto Kill All
+killerTab:AddSwitch("Auto Kill All", function(bool)
+    task.spawn(function()
+        while bool do
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= plr and not table.find(whitelist, p.Name) then
+                    local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                        plr.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                        local tool = plr.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Fast Kill Aura
+killerTab:AddSwitch("Fast Kill Aura", function(state)
+    task.spawn(function()
+        while state do
+            for _, player in pairs(game.Players:GetPlayers()) do
+                if player ~= plr and not table.find(whitelist, player.Name) then
+                    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                    local myHrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and myHrp then
+                        local distance = (myHrp.Position - hrp.Position).Magnitude
+                        if distance <= ringAuraRadius then
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+end)
+
+-- Spy Player
+local targetPlayerName = nil
+killerTab:AddTextBox("Target Player Username", function(name)
+    targetPlayerName = name
+end, { placeholder = "Username" })
+
+killerTab:AddSwitch("Spy Player", function(state)
+    task.spawn(function()
+        while state do
+            if targetPlayerName then
+                local target = game.Players:FindFirstChild(targetPlayerName)
+                if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+                    workspace.CurrentCamera.CameraSubject = target.Character.Humanoid
+                end
+            end
+            task.wait(1)
+        end
+        if plr.Character then
+            workspace.CurrentCamera.CameraSubject = plr.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end)
+end)
+--// Auto Farm Tab
+local farmTab = win:AddTab("Auto Farm")
+local machines = { "Tiny Island Rock", "Punching Rock", "Large Island Rock", "Golden Rock",
+    "Frost Gym Rock", "Mythical Gym Rock", "Eternal Gym Rock", "Legend Gym Rock",
+    "Muscle King Gym Rock", "Ancient Jungle Rock" }
+
+local selectedMachine = nil
+local farmingMachine = false
+
+-- Dropdown لاختيار ماكينة
+farmTab:AddDropdown("Select Machine", function(option)
+    selectedMachine = option
+end, { default = machines[1], options = machines })
+
+-- Auto Farm Machine
+farmTab:AddSwitch("Auto Farm Machine", function(bool)
+    farmingMachine = bool
+    if bool then
+        task.spawn(function()
+            while farmingMachine do
+                if selectedMachine and workspace:FindFirstChild(selectedMachine) and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local machine = workspace[selectedMachine]
+                    plr.Character.HumanoidRootPart.CFrame = machine.CFrame * CFrame.new(0,0,3)
+                    local tool = plr.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
+                end
+                task.wait(0.05) -- سرعة التكرار
+            end
+        end)
+    end
+end)
+
+-- Mob Farm
+local mobs = {}
+local selectedMob = nil
+local farmingMob = false
+
+-- إضافة اسم الموب
+farmTab:AddTextBox("Mob Name", function(mobName)
+    if mobName and mobName ~= "" and not table.find(mobs, mobName) then
+        table.insert(mobs, mobName)
+        mobDropdown:UpdateOptions(mobs)
+    end
+end, { placeholder = "Type Mob Name to Save" })
+
+-- Dropdown لاختيار الموب
+local mobDropdown = farmTab:AddDropdown("Select Mob", function(mob)
+    selectedMob = mob
+end, { default = nil, options = mobs })
+
+-- Auto Farm Mob
+farmTab:AddSwitch("Auto Farm Mob", function(enabled)
+    farmingMob = enabled
+    if enabled then
+        task.spawn(function()
+            while farmingMob and selectedMob do
+                for _, mob in pairs(workspace:GetDescendants()) do
+                    if mob:IsA("Model") and mob.Name == selectedMob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+                        local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            hrp.CFrame = mob.HumanoidRootPart.CFrame * CFrame.new(0,0,-3)
+                            local tool = plr.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                        task.wait(0.05) -- سرعة الهجوم على الموب
+                    end
+                end
+                task.wait(0.05) -- سرعة التكرار لكل دورة
+            end
+        end)
+    end
+end)
+--// Stats Tab
+statsTab:AddLabel("Track Stats")
+statsTab:AddTextBox("Custom User (Name)", function(name)
+    -- Load stats for custom user
+end, { placeholder = "Enter Username" })
+
+statsTab:AddButton("Refresh Stats", function()
+    statsTab:Clear() -- مسح القديم قبل التحديث
+    local ls = plr:FindFirstChild("leaderstats")
+    if ls then
+        for _, stat in pairs(ls:GetChildren()) do
+            statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
         end
     end
 end)
---// Crystals Tab - Pets & Auras
-local crystalsTab = win:AddTab("Crystals")
 
-local uniquePets = {"Infernal Dragon", "Ultra Birdie", "Magic Butterfly", "Aether Spirit Bunny", "Cybernetic Showdown Dragon"}
-local epicPets = {"Blue Pheonix", "Golden Pheonix", "Red Firecaster"}
-local rarePets = {"Crimson Falcon", "Purple Dragon", "Orange Pegasus"}
-local advancedPets = {"Dark Vampy", "Dark Golem", "Green Butterfly"}
-local basicPets = {"Blue Birdie", "Orange Hedgehog", "Red Kitty"}
+--// Crystals Tab
+local uniquePets = {
+    "Infernal Dragon", "Ultra Birdie", "Magic Butterfly", "Aether Spirit Bunny", 
+    "Cybernetic Showdown Dragon", "Darkstar Hunter", "Hank", "Gold Warrior", 
+    "Sky Hawk", "Cool Guy", "Larry", "Screaming Bones", "Muscle Sensei", "Neon Guardian"
+}
+local epicPets = {"Blue Pheonix", "Blue Firecaster", "Golden Pheonix", "Red Firecaster", "Green Firecaster"}
+local rarePets = {"Crimson Falcon", "Purple Dragon", "Orange Pegasus", "Red Dragon", "White Pegasus"}
+local advancedPets = {"Dark Vampy", "Dark Golem", "Green Butterfly", "Yellow Butterfly", "Alien Girl", "Smiley Chops"}
+local basicPets = {"Blue Birdie", "Orange Hedgehog", "Red Kitty", "Blue Bunny", "Silver Dog"}
 
-local uniqueAuras = {"Inferno", "Dark Storm", "Dark Lightning"}
-local epicAuras = {"Enchanted Mirage", "Unstable Mirage", "Lightning"}
-local rareAuras = {"Astral Electro", "Dark Electro", "Ultra Mirage"}
+local uniqueAuras = {"Inferno", "Dark Storm", "Dark Lightning", "Muscle King", "Eternal Megastrike", "Entropic Blast"}
+local epicAuras = {"Enchanted Mirage", "Unstable Mirage", "Lightning", "Azure Tundra", "Grand Supernova"}
+local rareAuras = {"Astral Electro", "Dark Electro", "Ultra Mirage", "Supernova", "Power Lightning", "Ultra Inferno"}
 local advancedAuras = {"Purple Nova", "Electro"}
-local basicAuras = {"Yellow Aura", "Purple Aura", "Green Aura"}
+local basicAuras = {"Yellow Aura", "Purple Aura", "Green Aura", "Blue Aura", "Red Aura"}
 
 -- Pets Dropdowns
-crystalsTab:AddDropdown("Select Pet (Unique)", function(pet)
-    print("Selected Unique Pet: "..pet)
-end, { options = uniquePets })
-
-crystalsTab:AddDropdown("Select Pet (Epic)", function(pet)
-    print("Selected Epic Pet: "..pet)
-end, { options = epicPets })
-
-crystalsTab:AddDropdown("Select Pet (Rare)", function(pet)
-    print("Selected Rare Pet: "..pet)
-end, { options = rarePets })
-
-crystalsTab:AddDropdown("Select Pet (Advanced)", function(pet)
-    print("Selected Advanced Pet: "..pet)
-end, { options = advancedPets })
-
-crystalsTab:AddDropdown("Select Pet (Basic)", function(pet)
-    print("Selected Basic Pet: "..pet)
-end, { options = basicPets })
+crystalsTab:AddDropdown("Select Pet (Unique)", function(pet) end, { options = uniquePets })
+crystalsTab:AddDropdown("Select Pet (Epic)", function(pet) end, { options = epicPets })
+crystalsTab:AddDropdown("Select Pet (Rare)", function(pet) end, { options = rarePets })
+crystalsTab:AddDropdown("Select Pet (Advanced)", function(pet) end, { options = advancedPets })
+crystalsTab:AddDropdown("Select Pet (Basic)", function(pet) end, { options = basicPets })
 
 -- Auras Dropdowns
-crystalsTab:AddDropdown("Select Aura (Unique)", function(aura)
-    print("Selected Unique Aura: "..aura)
-end, { options = uniqueAuras })
-
-crystalsTab:AddDropdown("Select Aura (Epic)", function(aura)
-    print("Selected Epic Aura: "..aura)
-end, { options = epicAuras })
-
-crystalsTab:AddDropdown("Select Aura (Rare)", function(aura)
-    print("Selected Rare Aura: "..aura)
-end, { options = rareAuras })
-
-crystalsTab:AddDropdown("Select Aura (Advanced)", function(aura)
-    print("Selected Advanced Aura: "..aura)
-end, { options = advancedAuras })
-
-crystalsTab:AddDropdown("Select Aura (Basic)", function(aura)
-    print("Selected Basic Aura: "..aura)
-end, { options = basicAuras })
+crystalsTab:AddDropdown("Select Aura (Unique)", function(aura) end, { options = uniqueAuras })
+crystalsTab:AddDropdown("Select Aura (Epic)", function(aura) end, { options = epicAuras })
+crystalsTab:AddDropdown("Select Aura (Rare)", function(aura) end, { options = rareAuras })
+crystalsTab:AddDropdown("Select Aura (Advanced)", function(aura) end, { options = advancedAuras })
+crystalsTab:AddDropdown("Select Aura (Basic)", function(aura) end, { options = basicAuras })

@@ -1,85 +1,221 @@
+--// Load Library
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/Library.txt", true))()
+local win = lib:AddWindow("Fixed by Vyxon | Full Hub", {
+    main_color = Color3.fromRGB(0, 0, 255),
+    min_size = Vector2.new(540, 450),
+    can_resize = false,
+})
+
 --// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local Lighting = game:GetService("Lighting")
-
 local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
 
--- Safe loader for external UI library
-local function safeLoad(url)
-    local ok, res = pcall(function()
-        return loadstring(game:HttpGet(url))()
+--// Global tables for tracking features
+getgenv().whitelist = getgenv().whitelist or {}
+getgenv().autoRebirth = false
+getgenv().farmingMob = false
+getgenv().farmingMachine = false
+getgenv().fastGlitch = getgenv().fastGlitch or {}
+getgenv().fastGlitchV2 = getgenv().fastGlitchV2 or {}
+getgenv().autopunch = false
+getgenv().fastPunch = false
+getgenv().autoKillActive = false
+getgenv().fastKillAura = false
+getgenv().spyPlayer = false
+--// Rebirth Tab
+local rebTab = win:AddTab("Rebirth")
+
+-- Rebirth System
+local RBCode = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/README.md"))()
+local RB = {}
+RB.__index = RB
+function RB.new(tab)
+    local self = setmetatable({}, RB)
+    self.on = false
+    self.target = 1
+    self.tab = tab
+    self:ui()
+    return self
+end
+
+function RB:ui()
+    self.input = self.tab:AddTextBox("Target Rebirths", function(v)
+        local n = tonumber(v)
+        if n and n >= 1 then self.target = n else self.input:Set("") end
+    end, { placeholder = "" })
+
+    self.tab:AddSwitch("Auto Rebirth", function(state)
+        self.on = state
+        if state then self:run() end
     end)
-    if not ok then warn("Failed to load lib:", res) return nil end
-    return res
 end
 
-local lib = safeLoad("https://raw.githubusercontent.com/bestwars17/Vyxon/refs/heads/main/Library.txt")
-if not lib then return end
-
--- Window
-local win = lib:AddWindow("Vyxon Hub | Full Version", {
-    main_color = Color3.fromRGB(20,20,20),
-    min_size = Vector2.new(560,620),
-    toggle_key = Enum.KeyCode.RightShift
-})
-
--- TABS
-local ServerTab = win:AddTab("Server")
-local CombatTab = win:AddTab("Combat")
-local FarmTab = win:AddTab("Farm++")
-local SocialTab = win:AddTab("Social")
-local QoLTab = win:AddTab("QoL")
-local DebugTab = win:AddTab("Debug")
---// Helper function for notifications
-local function notify(txt)
-    pcall(function()
-        StarterGui:SetCore("SendNotification",{Title="Vyxon", Text=txt, Duration=3})
-    end)
-    print("[Vyxon]", txt)
-end
-
--- Rate Limiter
-local RateLimiter = { last = {} }
-function RateLimiter:allow(key,minGap)
-    local now = os.clock()
-    local last = self.last[key] or 0
-    if now - last >= (minGap or 0.1) then
-        self.last[key] = now
-        return true
-    end
-    return false
-end
-
--- Safe remote finder
-local function findIn(parent, pathArray)
-    local node = parent
-    for _,name in ipairs(pathArray) do
-        node = node and node:FindFirstChild(name)
-        if not node then return nil end
-    end
-    return node
-end
-
-local REMOTE_PATHS = {
-    Rebirth = {"rEvents","rebirthRemote"},
-    MuscleEvent = {"muscleEvent"},
-    JoinBrawl = {"rEvents","joinBrawl"},
-    UseMachine = {"rEvents","useMachine"}
-}
-
--- SERVER TAB
-ServerTab:AddSwitch("Fast Rebirths (safe)", function(state)
-    notify("Fast Rebirths: "..tostring(state))
-    getgenv().fastRebirths = state
+function RB:run()
     task.spawn(function()
-        while getgenv().fastRebirths do
-            if RateLimiter:allow("Rebirth",0.15) then
-                local rf = findIn(ReplicatedStorage,REMOTE_PATHS.Rebirth)
-                if rf then
-                    pcall(function() rf:InvokeServer("rebirthRequest") end)
+        local ls = LocalPlayer:WaitForChild("leaderstats")
+        local rb = ls and ls:WaitForChild("Rebirths")
+        local evt = ReplicatedStorage:WaitForChild("rEvents")
+        local remote = evt and evt:WaitForChild("rebirthRemote")
+        if not (rb and remote) then self.on = false return end
+
+        while self.on do
+            if rb.Value >= self.target then self.on = false break end
+            pcall(function() remote:InvokeServer("rebirthRequest") end)
+            task.wait(0.2)
+        end
+    end)
+end
+
+local reb = RB.new(rebTab)
+
+--// Main Tab
+local mainTab = win:AddTab("Main")
+
+-- WalkSpeed
+mainTab:AddTextBox("Player Speed", function(val)
+    local num = tonumber(val)
+    if num and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = num
+    end
+end, { placeholder = "WalkSpeed" })
+
+-- JumpPower
+mainTab:AddTextBox("Jump Power", function(val)
+    local num = tonumber(val)
+    if num and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.JumpPower = num
+    end
+end, { placeholder = "JumpPower" })
+
+-- Anti Knockback
+mainTab:AddSwitch("Anti Knockback", function(state)
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:SetAttribute("NoKnockback", state)
+    end
+end)
+
+-- Lock Position
+local lockedPos = nil
+mainTab:AddSwitch("Lock Position", function(state)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if state and hrp then
+        lockedPos = hrp.CFrame
+        task.spawn(function()
+            while state and hrp do
+                hrp.CFrame = lockedPos
+                task.wait()
+            end
+        end)
+    else
+        lockedPos = nil
+    end
+end)
+--// Killer Tab
+local killerTab = win:AddTab("Killer")
+
+local whitelist = {}
+
+-- Kill Evil Karma
+killerTab:AddSwitch("Kill Evil Karma", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
+                    local karma = p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value < 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and myHrp then
+                            myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Kill Good Karma
+killerTab:AddSwitch("Kill Good Karma", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p:FindFirstChild("leaderstats") then
+                    local karma = p.leaderstats:FindFirstChild("Karma")
+                    if karma and karma.Value > 0 then
+                        local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and myHrp then
+                            myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Kill Low Strength
+local lowStrength = 0
+killerTab:AddTextBox("Kill Low Strength <", function(val)
+    lowStrength = tonumber(val) or 0
+end, { placeholder = "Strength Threshold" })
+
+-- Whitelist User
+killerTab:AddTextBox("Whitelist User", function(user)
+    if user and user ~= "" and not table.find(whitelist, user) then
+        table.insert(whitelist, user)
+    end
+end, { placeholder = "Add Username" })
+
+-- Auto Kill All
+killerTab:AddSwitch("Auto Kill All", function(state)
+    task.spawn(function()
+        while state do
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and not table.find(whitelist, p.Name) then
+                    local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+                    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and myHrp then
+                        myHrp.CFrame = hrp.CFrame * CFrame.new(0,0,3)
+                        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+end)
+
+-- Fast Kill Aura
+getgenv().ringAuraRadius = 10
+killerTab:AddTextBox("Aura Radius", function(val)
+    local num = tonumber(val)
+    if num then getgenv().ringAuraRadius = num end
+end, { placeholder = "Default 10" })
+
+killerTab:AddSwitch("Fast Kill Aura", function(state)
+    getgenv().fastKillAura = state
+    task.spawn(function()
+        while getgenv().fastKillAura do
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and not table.find(whitelist, p.Name) and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local distance = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                    if distance <= getgenv().ringAuraRadius then
+                        local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    end
                 end
             end
             task.wait(0.05)
@@ -87,188 +223,187 @@ ServerTab:AddSwitch("Fast Rebirths (safe)", function(state)
     end)
 end)
 
-ServerTab:AddButton("Join Brawl (safe)", function()
-    local ev = findIn(ReplicatedStorage,REMOTE_PATHS.JoinBrawl)
-    if ev then pcall(function() ev:FireServer() end) end
-    notify("Join Brawl pressed")
+-- Spy Player
+getgenv().targetPlayerName = nil
+killerTab:AddTextBox("Target Player", function(name)
+    getgenv().targetPlayerName = name
 end)
 
-ServerTab:AddButton("Reset Character", function()
-    local char = LocalPlayer.Character
-    if char then char:BreakJoints() notify("Character reset") end
-end)
-
--- COMBAT TAB
-CombatTab:AddSwitch("Auto Punch (safe)", function(state)
-    notify("Auto Punch: "..tostring(state))
-    getgenv().autoPunch = state
+killerTab:AddSwitch("Spy Player", function(state)
+    getgenv().spyPlayer = state
     task.spawn(function()
-        while getgenv().autoPunch do
-            if RateLimiter:allow("Punch",0.05) then
-                local char = LocalPlayer.Character
-                local tool = char and char:FindFirstChildOfClass("Tool")
-                if tool and tool.Activate then pcall(function() tool:Activate() end) end
-            end
-            task.wait(0.05)
-        end
-    end)
-end)
-
-CombatTab:AddSwitch("Auto Equip Punch", function(state)
-    notify("Auto Equip Punch: "..tostring(state))
-    getgenv().autoEquipPunch = state
-    task.spawn(function()
-        while getgenv().autoEquipPunch do
-            local backpack = LocalPlayer:FindFirstChild("Backpack")
-            local char = LocalPlayer.Character
-            if backpack and char and char:FindFirstChildOfClass("Humanoid") then
-                local punch = backpack:FindFirstChild("Punch")
-                if punch then pcall(function() char.Humanoid:EquipTool(punch) end) end
+        while getgenv().spyPlayer and getgenv().targetPlayerName do
+            local target = Players:FindFirstChild(getgenv().targetPlayerName)
+            if target and target.Character then
+                Workspace.CurrentCamera.CameraSubject = target.Character:FindFirstChildOfClass("Humanoid")
             end
             task.wait(1)
         end
+        if LocalPlayer.Character then
+            Workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
     end)
 end)
+--// Auto Farm Tab
+local farmTab = win:AddTab("Auto Farm")
 
--- SOCIAL TAB
-SocialTab:AddTextbox("View Player (exact name)", function(target)
-    target = tostring(target or ""):gsub("^%s+",""):gsub("%s+$","")
-    if target=="" then return end
-    local plr = Players:FindFirstChild(target)
-    local char = plr and plr.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        workspace.CurrentCamera.CameraSubject = hum
-        notify("Viewing: "..target)
-    end
-end)
+local machines = {
+    "Tiny Island Rock", "Punching Rock", "Large Island Rock",
+    "Golden Rock", "Frost Gym Rock", "Mythical Gym Rock",
+    "Eternal Gym Rock", "Legends Gym Rock", "Muscle King Gym Rock",
+    "Ancient Jungle Rock"
+}
+local selectedMachine = machines[1]
+local farmingMachine = false
 
-SocialTab:AddButton("Unview", function()
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        workspace.CurrentCamera.CameraSubject = hum
-        notify("Camera reset to self")
-    end
-end)
+-- Machine Dropdown
+farmTab:AddDropdown("Select Machine", function(option)
+    selectedMachine = option
+end, { default = selectedMachine, options = machines })
 
-SocialTab:AddTextbox("Spy Stats (player name)", function(target)
-    target = tostring(target or ""):gsub("^%s+",""):gsub("%s+$","")
-    if target=="" then return end
-    local plr = Players:FindFirstChild(target)
-    local ls = plr and plr:FindFirstChild("leaderstats")
-    if not ls then return notify("No leaderstats found") end
-    local out = {}
-    for _,stat in ipairs(ls:GetChildren()) do
-        table.insert(out, stat.Name..":"..tostring(stat.Value))
-    end
-    notify("Stats("..target.."): "..table.concat(out,", "))
-end)
-
--- QOL TAB
-QoLTab:AddButton("ShiftLock ON", function()
-    pcall(function() LocalPlayer.DevEnableMouseLock = true end)
-    notify("ShiftLock enabled")
-end)
-
-QoLTab:AddButton("Lighting: Morning", function()
-    pcall(function() Lighting.ClockTime=8 end)
-    notify("Lighting set to Morning")
-end)
-
-QoLTab:AddButton("Lighting: Day", function()
-    pcall(function() Lighting.ClockTime=12 end)
-    notify("Lighting set to Day")
-end)
-
-QoLTab:AddButton("Lighting: Night", function()
-    pcall(function() Lighting.ClockTime=20 end)
-    notify("Lighting set to Night")
-end)
---// FARM TAB (Auto Farm 50 Threads)
-local autoFarmActive = false
-local training = false
-local threads = {}
-
-local function startTraining()
-    if training then return end
-    training = true
-    for _ = 1,50 do
-        local thread = task.spawn(function()
-            while autoFarmActive and training do
-                local ev = findIn(ReplicatedStorage, REMOTE_PATHS.MuscleEvent)
-                if ev then
-                    pcall(function() ev:FireServer("rep") end)
+-- Auto Farm Machine
+farmTab:AddSwitch("Auto Farm Machine", function(state)
+    farmingMachine = state
+    if state then
+        task.spawn(function()
+            while farmingMachine and LocalPlayer.Character do
+                local machineObj = workspace:FindFirstChild(selectedMachine)
+                if machineObj and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = machineObj.CFrame * CFrame.new(0,0,3)
+                    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if tool then tool:Activate() end
                 end
-                task.wait(0)
+                task.wait(0.05) -- سرعة التمرين
             end
         end)
-        table.insert(threads, thread)
-    end
-end
-
-local function stopTraining()
-    training = false
-    threads = {}
-end
-
-FarmTab:AddSwitch("Auto Farm (equipped tool)", function(state)
-    notify("Auto Farm: "..tostring(state))
-    getgenv().autoFarm = state
-    autoFarmActive = state
-    if autoFarmActive then
-        startTraining()
-    else
-        stopTraining()
     end
 end)
 
--- Jungle Gym (safe stubs)
-local jungleGymMachines = {"Jungle Bench","Jungle Bar Lift","Jungle Boulder"}
-local JungleFolder = FarmTab:AddFolder("Auto Gym | Jungle (safe stubs)")
-for _,machine in ipairs(jungleGymMachines) do
-    JungleFolder:AddSwitch(machine, function(state)
-        notify(machine..": "..tostring(state))
-        getgenv()["gym_"..machine] = state
+-- Mob Farming
+local mobs = {}
+local selectedMob = nil
+local farmingMob = false
+
+farmTab:AddTextBox("Add Mob Name", function(mobName)
+    if mobName and mobName ~= "" and not table.find(mobs, mobName) then
+        table.insert(mobs, mobName)
+        mobDropdown:UpdateOptions(mobs)
+    end
+end, { placeholder = "Type Mob Name" })
+
+local mobDropdown = farmTab:AddDropdown("Select Mob", function(mob)
+    selectedMob = mob
+end, { default = nil, options = mobs })
+
+farmTab:AddSwitch("Auto Farm Mob", function(state)
+    farmingMob = state
+    if state then
         task.spawn(function()
-            while getgenv()["gym_"..machine] do
-                local ev = findIn(ReplicatedStorage, REMOTE_PATHS.MuscleEvent)
-                if ev then
-                    pcall(function() ev:FireServer("gym",machine) end)
+            while farmingMob and selectedMob and LocalPlayer.Character do
+                for _, mob in pairs(workspace:GetDescendants()) do
+                    if mob:IsA("Model") and mob.Name == selectedMob and mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") then
+                        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            hrp.CFrame = mob.HumanoidRootPart.CFrame * CFrame.new(0,0,-3)
+                            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                        end
+                        task.wait(0.05) -- سرعة الهجوم
+                    end
                 end
                 task.wait(0.05)
             end
         end)
-    end)
-end
+    end
+end)
+--// Stats Tab
+local statsTab = win:AddTab("Stats")
 
--- SERVER TAB Remote Actions (for completeness)
-ServerTab:AddButton("Join Brawl", function()
-    local ev = findIn(ReplicatedStorage, REMOTE_PATHS.JoinBrawl)
-    if ev then pcall(function() ev:FireServer() end) end
-    notify("Join Brawl fired")
+-- Refresh Leaderstats
+statsTab:AddButton("Refresh My Stats", function()
+    statsTab:Clear() -- يمسح البيانات القديمة قبل الإضافة
+    local ls = plr:FindFirstChild("leaderstats")
+    if ls then
+        for _, stat in pairs(ls:GetChildren()) do
+            statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
+        end
+    else
+        statsTab:AddLabel("No leaderstats found")
+    end
 end)
 
-ServerTab:AddButton("Rebirth (manual)", function()
-    local rf = findIn(ReplicatedStorage, REMOTE_PATHS.Rebirth)
-    if rf then pcall(function() rf:InvokeServer("rebirthRequest") end) end
-    notify("Rebirth fired")
-end)
--- DEBUG TAB
-DebugTab:AddButton("List candidate remotes", function()
-    local function listChildren(obj, depth)
-        depth = depth or 0
-        local prefix = string.rep("  ", depth)
-        for _, child in ipairs(obj:GetChildren()) do
-            print(prefix.."- "..child.Name, child.ClassName)
-            listChildren(child, depth+1)
+-- Track Custom Player
+local customPlayerName = ""
+statsTab:AddTextBox("Custom Player Name", function(name)
+    customPlayerName = name
+end, { placeholder = "Enter player name" })
+
+statsTab:AddButton("Refresh Custom Player Stats", function()
+    statsTab:Clear()
+    if customPlayerName and customPlayerName ~= "" then
+        local target = Players:FindFirstChild(customPlayerName)
+        if target and target:FindFirstChild("leaderstats") then
+            for _, stat in pairs(target.leaderstats:GetChildren()) do
+                statsTab:AddLabel(stat.Name .. ": " .. tostring(stat.Value))
+            end
+        else
+            statsTab:AddLabel("Player not found or no leaderstats")
         end
     end
-    print("[Vyxon] ReplicatedStorage tree:")
-    listChildren(ReplicatedStorage,0)
-    notify("Printed ReplicatedStorage tree to Output")
 end)
+--// Crystals Tab - Pets & Auras
+local crystalsTab = win:AddTab("Crystals")
 
-DebugTab:AddLabel("Auto Farm Active: false")
-DebugTab:AddLabel("Threads count: 50")
-DebugTab:AddLabel("Vyxon Hub | Full Version Ready")
+local uniquePets = {"Infernal Dragon", "Ultra Birdie", "Magic Butterfly", "Aether Spirit Bunny", "Cybernetic Showdown Dragon"}
+local epicPets = {"Blue Pheonix", "Golden Pheonix", "Red Firecaster"}
+local rarePets = {"Crimson Falcon", "Purple Dragon", "Orange Pegasus"}
+local advancedPets = {"Dark Vampy", "Dark Golem", "Green Butterfly"}
+local basicPets = {"Blue Birdie", "Orange Hedgehog", "Red Kitty"}
+
+local uniqueAuras = {"Inferno", "Dark Storm", "Dark Lightning"}
+local epicAuras = {"Enchanted Mirage", "Unstable Mirage", "Lightning"}
+local rareAuras = {"Astral Electro", "Dark Electro", "Ultra Mirage"}
+local advancedAuras = {"Purple Nova", "Electro"}
+local basicAuras = {"Yellow Aura", "Purple Aura", "Green Aura"}
+
+-- Pets Dropdowns
+crystalsTab:AddDropdown("Select Pet (Unique)", function(pet)
+    print("Selected Unique Pet: "..pet)
+end, { options = uniquePets })
+
+crystalsTab:AddDropdown("Select Pet (Epic)", function(pet)
+    print("Selected Epic Pet: "..pet)
+end, { options = epicPets })
+
+crystalsTab:AddDropdown("Select Pet (Rare)", function(pet)
+    print("Selected Rare Pet: "..pet)
+end, { options = rarePets })
+
+crystalsTab:AddDropdown("Select Pet (Advanced)", function(pet)
+    print("Selected Advanced Pet: "..pet)
+end, { options = advancedPets })
+
+crystalsTab:AddDropdown("Select Pet (Basic)", function(pet)
+    print("Selected Basic Pet: "..pet)
+end, { options = basicPets })
+
+-- Auras Dropdowns
+crystalsTab:AddDropdown("Select Aura (Unique)", function(aura)
+    print("Selected Unique Aura: "..aura)
+end, { options = uniqueAuras })
+
+crystalsTab:AddDropdown("Select Aura (Epic)", function(aura)
+    print("Selected Epic Aura: "..aura)
+end, { options = epicAuras })
+
+crystalsTab:AddDropdown("Select Aura (Rare)", function(aura)
+    print("Selected Rare Aura: "..aura)
+end, { options = rareAuras })
+
+crystalsTab:AddDropdown("Select Aura (Advanced)", function(aura)
+    print("Selected Advanced Aura: "..aura)
+end, { options = advancedAuras })
+
+crystalsTab:AddDropdown("Select Aura (Basic)", function(aura)
+    print("Selected Basic Aura: "..aura)
+end, { options = basicAuras })

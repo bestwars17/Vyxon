@@ -4,115 +4,605 @@ local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+-- Vyxon FEATURES MODULE (Integrated, Detailed)
+-- Author: assistant (merged & expanded for user)
+-- Usage: paste into executor where `win` (Vyxon library window) exists OR call functions from your UI switches.
 
--- Gui Library (Vyxon)
-local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bestwars17/Vyxon/main/VyxonLib.lua"))()
-local win = lib:Window("DEVIL_YOUSSEF | Paid Version")
+-- ====== Services & locals ======
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local plr = LocalPlayer
 
-----------------------------------------------------------------------
--- 📌 Farm++ Tab
-----------------------------------------------------------------------
+-- ====== Utilities ======
+local V = {
+    Toggles = {},    -- boolean flags per feature
+    Tasks = {},      -- task refs (threads)
+    Settings = {     -- default settings (changeable via UI)
+        trainPet = "Swift Samurai",
+        rebirthPet = "Tribal Overlord",
+        rockName = "Rock5M",
+        proteinEggName = "ProteinEgg",
+        proteinInterval = 30*60,
+        activeDuration = 5,
+        restDuration = 2,
+        ringAuraRadius = 10,
+        fastGainReps = 10,
+        fastGainWait = 0.05,
+        muscleEventName = "muscleEvent", -- usually client Object
+    }
+}
 
-local farmPlusTab = win:Tab("Farm++")
+local function safeFire(evt, ...)
+    if not evt then return nil end
+    if type(evt) == "string" then
+        local e = ReplicatedStorage:FindFirstChild(evt)
+        if e and e.FireServer then
+            pcall(function() e:FireServer(...) end)
+            return true
+        end
+        return false
+    else
+        if evt.FireServer then
+            pcall(function() evt:FireServer(...) end)
+            return true
+        end
+    end
+    return false
+end
 
--- ⚡ Auto Rep Farm
-farmPlusTab:Toggle("Auto Rep Farm", false, function(state)
-    getgenv().AutoRepFarmEnabled = state
-    if not state then return end
+local function safeInvoke(evt, ...)
+    if not evt then return nil end
+    if evt.InvokeServer then
+        local ok, res = pcall(function() return evt:InvokeServer(...) end)
+        if ok then return res end
+    end
+    return nil
+end
 
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local function find_rEvents()
+    return ReplicatedStorage:FindFirstChild("rEvents") or ReplicatedStorage:FindFirstChild("rEvents")
+end
 
-    -- إعدادات
-    local PET_NAME = "Swift Samurai"
-    local ROCK_NAME = "Rock5M"
-    local PROTEIN_EGG_NAME = "ProteinEgg"
-    local PROTEIN_EGG_INTERVAL = 30 * 60
-    local ACTIVE_DURATION = 5
-    local REST_DURATION = 2
-    local lastProteinEggTime = 0
+local function getMuscleEvent()
+    -- sometimes muscleEvent is a child of player or ReplicatedStorage; check common places
+    if plr:FindFirstChild("muscleEvent") then return plr.muscleEvent end
+    if ReplicatedStorage:FindFirstChild("muscleEvent") then return ReplicatedStorage.muscleEvent end
+    return nil
+end
 
-    -- تجهيز البت
-    local function equipPet()
-        if LocalPlayer:FindFirstChild("petsFolder") and LocalPlayer.petsFolder:FindFirstChild("Unique") then
-            for _, pet in pairs(LocalPlayer.petsFolder.Unique:GetChildren()) do
-                if pet.Name == PET_NAME then
-                    ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
-                    break
+-- ====== Task start/stop helpers ======
+function V:start(name, fn)
+    if self.Tasks[name] then return end
+    self.Toggles[name] = true
+    self.Tasks[name] = task.spawn(function()
+        local ok, err = pcall(fn)
+        if not ok then warn("[VyxonFeature]["..name.."] error:", err) end
+        self.Toggles[name] = false
+        self.Tasks[name] = nil
+    end)
+end
+
+function V:stop(name)
+    self.Toggles[name] = false
+    -- We don't (and can't reliably) force-kill a coroutine: loops must check Toggles[name] to exit.
+    self.Tasks[name] = nil
+end
+
+-- ====== Whitelist utilities ======
+V.whitelist = V.whitelist or {}
+function V:addWhitelist(name)
+    if name and name ~= "" and not table.find(V.whitelist, name) then
+        table.insert(V.whitelist, name)
+    end
+end
+function V:clearWhitelist()
+    V.whitelist = {}
+end
+function V:isWhitelisted(name)
+    return table.find(V.whitelist, name) ~= nil
+end
+
+-- ====== Pet helpers ======
+local function findPetInstanceByName(name)
+    if not plr then return nil end
+    local folder = plr:FindFirstChild("petsFolder")
+    if not folder then return nil end
+    for _, cat in pairs(folder:GetChildren()) do
+        if cat:IsA("Folder") then
+            for _, pet in pairs(cat:GetChildren()) do
+                if pet.Name == name then
+                    return pet
                 end
             end
         end
     end
+    return nil
+end
 
-    -- أكل بروتين
-    local function eatProteinEgg()
-        if LocalPlayer:FindFirstChild("Backpack") then
-            for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                if item.Name == PROTEIN_EGG_NAME then
-                    ReplicatedStorage.rEvents.eatEvent:FireServer("eat", item)
-                    break
+function V:equipPetByName(name)
+    local r = find_rEvents()
+    if not r then return false end
+    local equipEvt = r:FindFirstChild("equipPetEvent")
+    if not equipEvt then
+        -- fallback: try server expecting name string
+        pcall(function() r:FindFirstChild("equipPetEvent") end)
+    end
+    local petInstance = findPetInstanceByName(name)
+    if petInstance and equipEvt then
+        safeFire(equipEvt, "equipPet", petInstance)
+        return true
+    else
+        -- try string approach (some servers accept name)
+        if equipEvt then
+            pcall(function() equipEvt:FireServer("equipPet", name) end)
+            return true
+        end
+    end
+    return false
+end
+
+function V:unequipAllPets()
+    local r = find_rEvents()
+    if not r then return end
+    local equipEvt = r:FindFirstChild("equipPetEvent")
+    local folder = plr:FindFirstChild("petsFolder")
+    if folder and equipEvt then
+        for _, cat in pairs(folder:GetChildren()) do
+            if cat:IsA("Folder") then
+                for _, pet in pairs(cat:GetChildren()) do
+                    pcall(function() equipEvt:FireServer("unequipPet", pet) end)
                 end
             end
         end
     end
+end
 
-    -- ضرب الصخرة
-    local function hitRock()
-        local rock = Workspace:FindFirstChild(ROCK_NAME)
-        if rock and HumanoidRootPart then
-            HumanoidRootPart.CFrame = rock.CFrame * CFrame.new(0, 0, -5)
-            ReplicatedStorage.rEvents.hitEvent:FireServer("hit", rock)
+-- ====== Protein Egg ======
+function V:autoEatProteinLoop(toggleName)
+    local name = toggleName or "autoEatProtein"
+    V:start(name, function()
+        local last = 0
+        while V.Toggles[name] do
+            if tick() - last >= (V.Settings.proteinInterval or 1800) then
+                -- search backpack & character
+                local backpack = plr:FindFirstChild("Backpack")
+                if backpack then
+                    for _, item in pairs(backpack:GetChildren()) do
+                        if item.Name == (V.Settings.proteinEggName or "ProteinEgg") or item.Name:lower():match("protein") then
+                            local r = find_rEvents()
+                            if r and r:FindFirstChild("eatEvent") then
+                                pcall(function() r.eatEvent:FireServer("eat", item) end)
+                            elseif ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("eatEvent") then
+                                pcall(function() ReplicatedStorage.rEvents.eatEvent:FireServer("eat", item) end)
+                            else
+                                -- fallback: try muscleEvent 'rep' to consume
+                                local muscle = getMuscleEvent()
+                                if muscle then pcall(function() muscle:FireServer("rep") end) end
+                            end
+                            last = tick()
+                            break
+                        end
+                    end
+                end
+            end
+            task.wait(1)
         end
-    end
+    end)
+end
 
-    -- تمرين متواصل
-    local function heartbeatBurst(duration)
-        local connection
-        local startTime = tick()
-        connection = RunService.Heartbeat:Connect(function()
-            if not getgenv().AutoRepFarmEnabled or tick() - startTime > duration then
-                connection:Disconnect()
-                return
-            end
-            if LocalPlayer:FindFirstChild("muscleEvent") then
-                LocalPlayer.muscleEvent:FireServer("rep")
-            end
+-- ====== Heartbeat burst / Rep trainer (used by AutoRepFarm v2) ======
+function V:heartbeatBurst(duration)
+    local muscle = getMuscleEvent()
+    local startT = tick()
+    -- use connection to Heartbeat to spam exactly while allowed
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not V.Toggles["autoRepFarm_v2"] or tick() - startT > duration then
+            if conn then conn:Disconnect() end
+            return
+        end
+        if muscle then
+            pcall(function() muscle:FireServer("rep") end)
+        end
+    end)
+    -- wait for end
+    repeat task.wait() until tick() - startT > duration or not V.Toggles["autoRepFarm_v2"]
+end
+
+-- ====== Hit rock helper ======
+function V:hitRockByName(name)
+    if not name or name == "" then return false end
+    local rock = Workspace:FindFirstChild(name) or (Workspace.machinesFolder and Workspace.machinesFolder:FindFirstChild(name))
+    if not rock then return false end
+    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            plr.Character.HumanoidRootPart.CFrame = (rock:FindFirstChild("Rock") and rock.Rock.CFrame or rock.CFrame) * CFrame.new(0,0,-5)
         end)
-        repeat task.wait() until tick() - startTime > duration or not getgenv().AutoRepFarmEnabled
     end
+    local r = find_rEvents()
+    if r and r:FindFirstChild("hitEvent") then
+        pcall(function() r.hitEvent:FireServer("hit", rock) end)
+        return true
+    end
+    return false
+end
 
-    -- الحلقة الرئيسية
-    task.spawn(function()
-        equipPet()
-        while getgenv().AutoRepFarmEnabled do
-            if tick() - lastProteinEggTime >= PROTEIN_EGG_INTERVAL then
-                eatProteinEgg()
-                lastProteinEggTime = tick()
+-- ====== AutoRepFarm (smart) - uses target strength calculation, equips pets, rebirths ======
+function V:autoRepFarm_smart(toggleName)
+    local name = toggleName or "autoRepFarm_smart"
+    V:start(name, function()
+        while V.Toggles[name] do
+            -- compute required strength
+            local leader = plr:FindFirstChild("leaderstats")
+            local rebirths = 0
+            if leader and leader:FindFirstChild("Rebirths") then rebirths = leader.Rebirths.Value end
+            local baseStrength = 10000 + (5000 * rebirths)
+            -- Golden Rebirth adjust
+            local golden = 0
+            local ult = plr:FindFirstChild("ultimatesFolder")
+            if ult and ult:FindFirstChild("Golden Rebirth") then golden = ult["Golden Rebirth"].Value end
+            if golden >=1 and golden <=5 then baseStrength = baseStrength * (1 - golden * 0.1) end
+            local required = math.floor(baseStrength)
+
+            -- equip train pet
+            V:unequipAllPets()
+            V:equipPetByName(V.Settings.trainPet or "Swift Samurai")
+            -- train until enough strength
+            while V.Toggles[name] and plr:FindFirstChild("leaderstats") and plr.leaderstats:FindFirstChild("Strength") and plr.leaderstats.Strength.Value < required do
+                local reps = V.Settings.fastGainReps or 10
+                for i=1, reps do
+                    if not V.Toggles[name] then break end
+                    local muscle = getMuscleEvent()
+                    if muscle then pcall(function() muscle:FireServer("rep") end) end
+                end
+                task.wait(V.Settings.fastGainWait or 0.12)
             end
-            if tick() % 10 < 0.2 then
-                hitRock()
-            end
-            heartbeatBurst(ACTIVE_DURATION)
-            task.wait(REST_DURATION)
+
+            if not V.Toggles[name] then break end
+
+            -- swap pet and rebirth
+            V:unequipAllPets()
+            V:equipPetByName(V.Settings.rebirthPet or "Tribal Overlord")
+            local oldReb = (plr:FindFirstChild("leaderstats") and plr.leaderstats:FindFirstChild("Rebirths") and plr.leaderstats.Rebirths.Value) or 0
+            local rEvents = find_rEvents()
+            repeat
+                if not V.Toggles[name] then break end
+                if rEvents and rEvents:FindFirstChild("rebirthRemote") then
+                    pcall(function() rEvents.rebirthRemote:InvokeServer("rebirthRequest") end)
+                end
+                task.wait(0.12)
+            until (plr:FindFirstChild("leaderstats") and plr.leaderstats.Rebirths and plr.leaderstats.Rebirths.Value > oldReb) or not V.Toggles[name]
+
+            task.wait(1)
         end
     end)
-end)
+end
 
--- ⚡ Fast Rebirths
-farmPlusTab:Toggle("Fast Rebirths", false, function(state)
-    getgenv().FastRebirths = state
-    if not state then return end
+-- ====== AutoRepFarm v2 (heartbeat + protein + rock + active/rest) ======
+function V:autoRepFarm_v2(toggleName)
+    local name = toggleName or "autoRepFarm_v2"
+    V:start(name, function()
+        local lastProtein = 0
+        while V.Toggles[name] do
+            -- equip training pet
+            V:equipPetByName(V.Settings.trainPet)
+            -- eat protein if time
+            if tick() - lastProtein >= (V.Settings.proteinInterval or 1800) then
+                -- try eat remote
+                local r = find_rEvents()
+                local eaten = false
+                if r and r:FindFirstChild("eatEvent") then
+                    local bp = plr:FindFirstChild("Backpack")
+                    if bp then
+                        for _, it in pairs(bp:GetChildren()) do
+                            if it.Name == (V.Settings.proteinEggName or "ProteinEgg") or it.Name:lower():match("protein") then
+                                pcall(function() r.eatEvent:FireServer("eat", it) end)
+                                eaten = true
+                                lastProtein = tick()
+                                break
+                            end
+                        end
+                    end
+                end
+                if not eaten then lastProtein = tick() end
+            end
 
-    task.spawn(function()
-        while getgenv().FastRebirths do
-            pcall(function()
-                ReplicatedStorage.rEvents.rebirthRemote:InvokeServer("rebirthRequest")
-            end)
-            task.wait(0.1) -- سرعة الريبرث
+            -- active burst
+            local startT = tick()
+            while V.Toggles[name] and tick() - startT < (V.Settings.activeDuration or 5) do
+                local muscle = getMuscleEvent()
+                if muscle then pcall(function() muscle:FireServer("rep") end) end
+                -- occasionally hit rock
+                if (tick() % 2) < 0.15 then
+                    V:hitRockByName(V.Settings.rockName)
+                end
+                task.wait(0.08)
+            end
+
+            -- rest
+            local rest = V.Settings.restDuration or 2
+            for i=1, math.max(1, math.floor(rest)) do
+                if not V.Toggles[name] then break end
+                task.wait(1)
+            end
         end
     end)
-end)
+end
 
-----------------------------------------------------------------------
--- ✅ النهاية: Farm++ صار فيه Auto Rep Farm + Fast Rebirths
-----------------------------------------------------------------------
+-- ====== Fast Gain (simple) ======
+function V:fastGainLoop(toggleName)
+    local name = toggleName or "fastGain"
+    V:start(name, function()
+        while V.Toggles[name] do
+            local muscle = getMuscleEvent()
+            if muscle then
+                pcall(function() muscle:FireServer("rep") end)
+            end
+            task.wait(V.Settings.fastGainWait or 0.05)
+        end
+    end)
+end
+
+-- ====== Fast Rebirth spam ======
+function V:fastRebirthsLoop(toggleName)
+    local name = toggleName or "fastRebirths"
+    V:start(name, function()
+        while V.Toggles[name] do
+            local r = find_rEvents()
+            if r and r:FindFirstChild("rebirthRemote") then
+                pcall(function() r.rebirthRemote:InvokeServer("rebirthRequest") end)
+            end
+            task.wait(0.09)
+        end
+    end)
+end
+
+-- ====== Auto Buy & Equip Pet ======
+function V:autoBuyEquipPet(toggleName)
+    local name = toggleName or "autoBuyPet"
+    V:start(name, function()
+        while V.Toggles[name] do
+            local petName = V.Settings.selectedPet or V.Settings.trainPet
+            local r = find_rEvents()
+            if petName and r then
+                -- try equip then buy
+                pcall(function() if r.equipPetEvent then r.equipPetEvent:FireServer("equipPet", petName) end end)
+                pcall(function() if r.buyPetEvent then r.buyPetEvent:FireServer(petName) end end)
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- ====== Auto Hatch Crystal ======
+function V:autoHatchCrystal(toggleName)
+    local name = toggleName or "autoHatchCrystal"
+    V:start(name, function()
+        while V.Toggles[name] do
+            local choice = V.Settings.crystalChoice
+            local r = find_rEvents()
+            if choice and r and r:FindFirstChild("openCrystalRemote") then
+                pcall(function() r.openCrystalRemote:InvokeServer("openCrystal", choice) end)
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- ====== Auto Equip Tools (Handstands, Pushups, Weight, Situps etc) ======
+function V:autoEquipToolLoop(toolName, toggleName)
+    local name = toggleName or ("autoTool_"..toolName)
+    V:start(name, function()
+        while V.Toggles[name] do
+            local tool = (plr.Backpack and plr.Backpack:FindFirstChild(toolName)) or (plr.Character and plr.Character:FindFirstChild(toolName))
+            if tool and plr.Character then
+                if tool.Parent ~= plr.Character then
+                    pcall(function() tool.Parent = plr.Character end)
+                end
+                -- invoke muscleEvent rep to register
+                local muscle = getMuscleEvent()
+                if muscle then pcall(function() muscle:FireServer("rep") end) end
+            end
+            task.wait(0.4)
+        end
+    end)
+end
+
+-- ====== Auto Punch / Fast Punch ======
+function V:autoPunchLoop(toggleName, fast)
+    local name = toggleName or (fast and "fastPunch" or "autoPunch")
+    V:start(name, function()
+        while V.Toggles[name] do
+            if plr.Character and plr.Character:FindFirstChild("Punch") then
+                local muscle = getMuscleEvent()
+                if muscle then
+                    pcall(function()
+                        muscle:FireServer("punch", "rightHand")
+                        muscle:FireServer("punch", "leftHand")
+                    end)
+                end
+            end
+            task.wait(fast and 0.05 or 0.12)
+        end
+    end)
+end
+
+-- ====== Auto Pushups + Rock Punch combo (Op stuff) ======
+function V:autoPushupsAndRock(toggleName)
+    local name = toggleName or "autoPushupsAndRock"
+    V:start(name, function()
+        while V.Toggles[name] do
+            -- equip pushups tool if exists
+            local pushups = plr.Backpack:FindFirstChild("Pushups") or (plr.Character and plr.Character:FindFirstChild("Pushups"))
+            if pushups and plr.Character then
+                pcall(function() pushups.Parent = plr.Character end)
+                pcall(function() local rock = Workspace:FindFirstChild("Ancient Jungle Rock") or Workspace.machinesFolder and Workspace.machinesFolder:FindFirstChild("Ancient Jungle Rock")
+                    if rock and plr:FindFirstChild("Durability") and plr.Durability.Value >= 10000000 then
+                        -- fire touch for both hands
+                        if plr.Character:FindFirstChild("RightHand") and rock:FindFirstChild("Rock") then
+                            pcall(function()
+                                firetouchinterest(rock.Rock, plr.Character.RightHand, 0)
+                                firetouchinterest(rock.Rock, plr.Character.LeftHand, 0)
+                                task.wait(0.02)
+                                firetouchinterest(rock.Rock, plr.Character.RightHand, 1)
+                                firetouchinterest(rock.Rock, plr.Character.LeftHand, 1)
+                            end)
+                        end
+                        local muscle = getMuscleEvent()
+                        if muscle then pcall(function() muscle:FireServer("punch", "rightHand") muscle:FireServer("punch", "leftHand") end) end
+                    end
+                end)
+            end
+            task.wait(0.12)
+        end
+    end)
+end
+
+-- ====== Fast Glitch (teleport & punch rocks) - rockData based ======
+V.fastGlitchRocks = {
+    {Name = "TinyIslandRock", Durability = 0},
+    {Name = "PunchingIslandRock", Durability = 10},
+    {Name = "LargeIslandRock", Durability = 100},
+    {Name = "GoldenBeachRock", Durability = 5000},
+    {Name = "FrostGymRock", Durability = 150000},
+    {Name = "MythicalGymRock", Durability = 400000},
+    {Name = "InfernoGymRock", Durability = 750000},
+    {Name = "LegendsGymRock", Durability = 1000000},
+    {Name = "MuscleKingGymRock", Durability = 5000000},
+    {Name = "AncientJungleRock", Durability = 10000000},
+}
+function V:fastGlitchRockLoop(rockName)
+    local name = "fastGlitch_"..(rockName or "Unnamed")
+    V:start(name, function()
+        while V.Toggles[name] do
+            -- find rock object
+            local rockObj = Workspace:FindFirstChild(rockName) or (Workspace.machinesFolder and Workspace.machinesFolder:FindFirstChild(rockName))
+            if rockObj and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                -- position near rock then punch
+                pcall(function()
+                    if rockObj.Rock and rockObj.Rock.Position then
+                        plr.Character.HumanoidRootPart.CFrame = CFrame.new(rockObj.Rock.Position + Vector3.new(0, 5, 0))
+                    else
+                        plr.Character.HumanoidRootPart.CFrame = rockObj.CFrame
+                    end
+                end)
+                local muscle = getMuscleEvent()
+                if muscle then pcall(function() muscle:FireServer("punch", "rightHand") muscle:FireServer("punch", "leftHand") end) end
+            end
+            task.wait(0.05)
+        end
+    end)
+end
+
+-- ====== Ring Aura (fastKillAura) ======
+function V:ringAuraLoop(toggleName)
+    local name = toggleName or "ringAura"
+    V:start(name, function()
+        while V.Toggles[name] do
+            local radius = V.Settings.ringAuraRadius or 10
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= plr and not V:isWhitelisted(player.Name) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                    if dist <= radius then
+                        local muscle = getMuscleEvent()
+                        if muscle then pcall(function() muscle:FireServer("punch", "rightHand") muscle:FireServer("punch", "leftHand") end) end
+                    end
+                end
+            end
+            task.wait(0.08)
+        end
+    end)
+end
+
+-- ====== Auto Kill (generic) ======
+function V:autoKillLoop(toggleName, method)
+    local name = toggleName or "autoKill"
+    method = method or "Teleport"
+    V:start(name, function()
+        while V.Toggles[name] do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= plr and not V:isWhitelisted(player.Name) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    if method == "Teleport" then
+                        pcall(function() plr.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position) end)
+                    end
+                    local muscle = getMuscleEvent()
+                    if muscle then pcall(function() muscle:FireServer("punch", "rightHand") muscle:FireServer("punch", "leftHand") end) end
+                end
+            end
+            task.wait(0.12)
+        end
+    end)
+end
+
+-- ====== Spy & Stats helpers (light) ======
+function V:getPlayerStats(name)
+    local target = Players:FindFirstChild(name)
+    if not target then return nil end
+    local stats = {}
+    if target:FindFirstChild("leaderstats") then
+        for _, s in pairs(target.leaderstats:GetChildren()) do stats[s.Name] = s.Value end
+    end
+    -- list equipped pets
+    local pets = {}
+    if target:FindFirstChild("petsFolder") then
+        for _, cat in pairs(target.petsFolder:GetChildren()) do
+            if cat:IsA("Folder") then
+                for _, pet in pairs(cat:GetChildren()) do table.insert(pets, pet.Name) end
+            end
+        end
+    end
+    stats.EquippedPets = pets
+    return stats
+end
+
+-- ====== USAGE EXAMPLES (bind to UI switches) ======
+-- Example 1 (Fast Gain Switch):
+-- FarmFolder:AddSwitch("Fast Gain", function(state)
+--     if state then V:fastGainLoop("fastGain") else V:stop("fastGain") end
+-- end)
+--
+-- Example 2 (Fast Rebirths):
+-- FarmFolder:AddSwitch("Fast Rebirths", function(state)
+--     if state then V:fastRebirthsLoop("fastRebirths") else V:stop("fastRebirths") end
+-- end)
+--
+-- Example 3 (Smart AutoRepFarm):
+-- FarmFolder:AddSwitch("Auto Rep Farm (Smart)", function(state)
+--     if state then V:autoRepFarm_smart("autoRepFarm_smart") else V:stop("autoRepFarm_smart") end
+-- end)
+--
+-- Example 4 (AutoRepFarm_v2):
+-- FarmFolder:AddSwitch("Auto Rep Farm V2", function(state)
+--     if state then V:autoRepFarm_v2("autoRepFarm_v2") else V:stop("autoRepFarm_v2") end
+-- end)
+--
+-- Example 5 (Auto Buy Pet)
+-- EggsFolder:AddSwitch("Auto Buy & Equip Pet", function(state)
+--     if state then V:autoBuyEquipPet("autoBuyPet") else V:stop("autoBuyPet") end
+-- end)
+--
+-- Example 6 (Auto Hatch Crystal)
+-- EggsFolder:AddSwitch("Auto Hatch Crystal", function(state)
+--     if state then V:autoHatchCrystal("autoHatchCrystal") else V:stop("autoHatchCrystal") end
+-- end)
+--
+-- Example 7 (Auto Equip Tool)
+-- ToolsFolder:AddSwitch("Auto Pushups", function(state)
+--     if state then V:autoEquipToolLoop("Pushups", "autoTool_Pushups") else V:stop("autoTool_Pushups") end
+-- end)
+--
+-- Example 8 (Ring Aura)
+-- ServerTab:AddSwitch("Ring Aura", function(state)
+--     if state then V:ringAuraLoop("ringAura") else V:stop("ringAura") end
+-- end)
+--
+-- Example 9 (Fast Glitch for Ancient Jungle Rock)
+-- PaidTab:AddSwitch("Ancient Jungle Fast Glitch", function(state)
+--     if state then V:fastGlitchRockLoop("AncientJungleRock") else V:stop("fastGlitch_AncientJungleRock") end
+-- end)
+
+-- ====== END of Module ======
+return V
